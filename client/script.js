@@ -1,90 +1,27 @@
-const gameBoard = document.getElementById('game-board');
-const moveOptions = document.getElementById('move-options');
-const turnIndicator = document.getElementById('turn-indicator');
-const moveHistory = document.getElementById('move-history');
-const resetButton = document.getElementById('reset-button');
+const socket = io();
+let currentPlayer = 'A'; // Example, can be determined by server later
 
-let gameState = null;
-let selectedPiece = null;
+socket.on('connect', () => {
+    socket.emit('initialize', { player_a: ['P1', 'H1', 'P2', 'H2', 'P3'], player_b: ['P1', 'H1', 'P2', 'H2', 'P3'] });
+});
 
-const socket = new WebSocket(`ws://${window.location.host}`);
+socket.on('game_state', (board) => {
+    renderBoard(board);
+});
 
-socket.onmessage = (event) => {
-    const message = JSON.parse(event.data);
-    if (message.type === 'gameState') {
-        gameState = message.data;
-        renderGameBoard();
-        updateTurnIndicator();
-    }
-};
+socket.on('invalid_move', (data) => {
+    alert(data.message);
+});
 
-function renderGameBoard() {
+function renderBoard(board) {
+    const gameBoard = document.getElementById('game-board');
     gameBoard.innerHTML = '';
-    gameState.board.forEach((row, rowIndex) => {
-        row.forEach((cell, colIndex) => {
-            const cellElement = document.createElement('div');
-            cellElement.classList.add('cell');
-            cellElement.textContent = cell || '';
-            cellElement.addEventListener('click', () => handleCellClick(rowIndex, colIndex));
-            gameBoard.appendChild(cellElement);
+    board.forEach(row => {
+        row.forEach(cell => {
+            const cellDiv = document.createElement('div');
+            cellDiv.className = 'cell ' + (cell ? `player-${cell[0]}` : '');
+            cellDiv.textContent = cell || '';
+            gameBoard.appendChild(cellDiv);
         });
     });
 }
-
-function handleCellClick(row, col) {
-    const piece = gameState.board[row][col];
-    if (piece && piece.startsWith(gameState.currentPlayer)) {
-        selectedPiece = { row, col, piece };
-        showMoveOptions(piece);
-    } else if (selectedPiece) {
-        // Implement move logic here
-        console.log(`Move ${selectedPiece.piece} to (${row}, ${col})`);
-        // Send move to server
-        socket.send(JSON.stringify({
-            type: 'move',
-            move: { from: selectedPiece, to: { row, col } }
-        }));
-        selectedPiece = null;
-        moveOptions.innerHTML = '';
-    }
-}
-
-function showMoveOptions(piece) {
-    moveOptions.innerHTML = '';
-    const moves = getMoveOptions(piece);
-    moves.forEach(move => {
-        const button = document.createElement('button');
-        button.textContent = move;
-        button.addEventListener('click', () => handleMove(move));
-        moveOptions.appendChild(button);
-    });
-}
-
-function getMoveOptions(piece) {
-    // Implement this function based on the piece type
-    // Return an array of valid move options
-    return ['L', 'R', 'F', 'B'];
-}
-
-function handleMove(move) {
-    // Implement move logic here
-    console.log(`Move ${selectedPiece.piece} ${move}`);
-    // Send move to server
-    socket.send(JSON.stringify({
-        type: 'move',
-        move: { piece: selectedPiece, direction: move }
-    }));
-    selectedPiece = null;
-    moveOptions.innerHTML = '';
-}
-
-function updateTurnIndicator() {
-    turnIndicator.textContent = `Current Turn: Player ${gameState.currentPlayer}`;
-}
-
-resetButton.addEventListener('click', () => {
-    socket.send(JSON.stringify({ type: 'reset' }));
-});
-
-// Initial render
-renderGameBoard();
