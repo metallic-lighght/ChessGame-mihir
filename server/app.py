@@ -2,7 +2,7 @@ from flask import Flask, render_template
 from flask_sockets import Sockets
 from websocket_server import GameWebSocketServer
 import os
-app = Flask(__name__)
+app = Flask(__name__, template_folder='/server')
 sockets = Sockets(app)
 
 # Initialize the WebSocket server
